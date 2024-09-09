@@ -1,9 +1,9 @@
 from flask import Flask, jsonify
 
-from controllers.pdf_controller import pdf_blueprint
+from controllers.pdf_controller import pdf_apis
 
 app = Flask(__name__)
-app.register_blueprint(pdf_blueprint, url_prefix="/pdf")
+app.register_blueprint(pdf_apis, url_prefix="/v1")
 
 @app.errorhandler(404)
 def not_found_error(error):

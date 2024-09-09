@@ -4,13 +4,13 @@ from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
 from flask_pydantic import validate
 
-from models.upload_pdf_model import UploadPDFModel, AskQuestionsModel
+from models.pdf_model import PDFModel, QuestionsModel
 from utils.file_utils import allowed_file, is_valid_pdf
 
-pdf_blueprint = Blueprint('pdf', __name__)
+pdf_apis = Blueprint('pdf', __name__)
 
-@pdf_blueprint.post('/upload')
-@validate(body=UploadPDFModel)
+@pdf_apis.post('/upload')
+@validate(body=PDFModel)
 def upload_pdf():
     try:
         data = request.json
@@ -31,8 +31,8 @@ def upload_pdf():
     except ValidationError as e:
         return jsonify({'error': str(e)}), 400
 
-@pdf_blueprint.post('/ask')
-@validate(body=AskQuestionsModel)
+@pdf_apis.post('/ask')
+@validate(body=QuestionsModel)
 def ask_questions():
     try:
         data = request.get_json()

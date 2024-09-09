@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 
-class UploadPDFModel(BaseModel):
+class PDFModel(BaseModel):
     file_path: str
 
-class AskQuestionsModel(BaseModel):
+class QuestionsModel(BaseModel):
     questions: list[str]

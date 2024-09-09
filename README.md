@@ -11,7 +11,7 @@ pdf-rag-agent/
 ├── controllers/
 │   └── pdf_controller.py      # Controller for handling logic of upload and ask endpoints
 ├── models/
-│   └── upload_pdf_model.py    # Pydantic models for request 
+│   └── pdf_model.py    # Pydantic models for request 
 ├── utils/
 │   └── file_utils.py          # Utility functions for checking file paths
 ├── Pipfile                    # Pipenv dependencies
