@@ -16,6 +16,7 @@ structlog = "*"
 httpx = "*"
 sentence-transformers = "*"
 pypdf = "*"
+faiss-cpu = "*"
 
 [dev-packages]
 

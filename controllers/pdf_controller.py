@@ -8,11 +8,13 @@ from flask import Blueprint, request, jsonify
 from flask_pydantic import validate
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.prompts import PromptTemplate
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain.vectorstores import FAISS
 from langchain.text_splitter import CharacterTextSplitter
 
-from models.pdf_model import PDFModel, QuestionsModel, QdrantQuery
+from models.pdf_model import PDFModel, QuestionsModel
 from utils.file_utils import allowed_file, is_valid_pdf
-from config.config import TEXT_SPLITTER, SUCCESS_STATUS, FAILED_STATUS
+from config.config import TEXT_SPLITTER, SUCCESS_STATUS, FAILED_STATUS, EM_ENCODE_KWARGS, EM_MODEL_KWARGS, EM_MODEL_NAME
 from templates.template import template
 
 pdf_apis = Blueprint('pdf', __name__)
@@ -45,7 +47,11 @@ def upload_pdf():
         logger.info(f"Number of Chunks: {len(documents)}")
         
         file_name = file_path.split("/")[-1]
-        QdrantQuery().insert_into_vectordb(documents, file_name)
+
+        embeddings = HuggingFaceEmbeddings(model_name=EM_MODEL_NAME, model_kwargs=EM_MODEL_KWARGS, encode_kwargs=EM_ENCODE_KWARGS)
+        vectorstore = FAISS.from_documents(documents, embeddings)
+        vectorstore.save_local("faiss_index_constitution")
+
         return jsonify({"filename": file_name, "status": SUCCESS_STATUS})
 
     except Exception as e:
@@ -63,8 +69,10 @@ def ask_questions():
             template=template,
         )
         answers = {}
+        embeddings = HuggingFaceEmbeddings(model_name=EM_MODEL_NAME, model_kwargs=EM_MODEL_KWARGS, encode_kwargs=EM_ENCODE_KWARGS)
+        persisted_vectorstore = FAISS.load_local("faiss_index_constitution", embeddings, allow_dangerous_deserialization=True)
         for question in questions:
-            relevant_docs = QdrantQuery().get_relevant_docs(question, k=1)
+            relevant_docs = persisted_vectorstore.similarity_search(query=question, fetch_k=1)
             logger.info(f"======{relevant_docs}")
             context = relevant_docs[0].page_content
             filled_prompt = prompt.format(question=question, context=context)
