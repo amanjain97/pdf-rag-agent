@@ -17,6 +17,7 @@ httpx = "*"
 sentence-transformers = "*"
 pypdf = "*"
 faiss-cpu = "*"
+openai = "*"
 
 [dev-packages]
 
