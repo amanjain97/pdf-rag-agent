@@ -8,6 +8,14 @@ flask = "*"
 pydantic = "*"
 flask-pydantic = "*"
 pypdf2 = "*"
+langchain = "*"
+qdrant-client = "*"
+pydantic-settings = "*"
+langchain-community = "*"
+structlog = "*"
+httpx = "*"
+sentence-transformers = "*"
+pypdf = "*"
 
 [dev-packages]
 

@@ -1,13 +1,23 @@
 import os
+import json
+import time
+import requests
+import structlog
 
 from flask import Blueprint, request, jsonify
-from pydantic import ValidationError
 from flask_pydantic import validate
+from langchain_community.document_loaders import PyPDFLoader
+from langchain.prompts import PromptTemplate
+from langchain.text_splitter import CharacterTextSplitter
 
-from models.pdf_model import PDFModel, QuestionsModel
+from models.pdf_model import PDFModel, QuestionsModel, QdrantQuery
 from utils.file_utils import allowed_file, is_valid_pdf
+from config.config import TEXT_SPLITTER, SUCCESS_STATUS, FAILED_STATUS
+from templates.template import template
 
 pdf_apis = Blueprint('pdf', __name__)
+
+logger = structlog.getLogger()
 
 @pdf_apis.post('/upload')
 @validate(body=PDFModel)
@@ -17,19 +27,29 @@ def upload_pdf():
         file_path = data['file_path']
 
         if not allowed_file(file_path):
-            return jsonify({'error': 'Invalid file format'}), 400
+            return jsonify({'error': 'Invalid file format', 'status': FAILED_STATUS}), 400
 
         if os.path.exists(file_path):
             pdf_valid, error = is_valid_pdf(file_path)
             if not pdf_valid:
-                return jsonify({'message': 'Invalid pdf file', 'error': error}), 400
-
-            return jsonify({'message': 'File exists', 'file_path': file_path}), 200
+                return jsonify({'message': 'Invalid pdf file', 'error': error, 'status': FAILED_STATUS}), 400
         else:
-            return jsonify({'error': 'File not found'}), 400
+            return jsonify({'error': 'File not found', 'status': FAILED_STATUS}), 400
 
-    except ValidationError as e:
-        return jsonify({'error': str(e)}), 400
+        loader = PyPDFLoader(file_path)
+        data = loader.load()
+
+        text_splitter = CharacterTextSplitter(chunk_size=TEXT_SPLITTER['chunk_size'], chunk_overlap=TEXT_SPLITTER['chunk_overlap'])
+        documents = text_splitter.split_documents(data)
+        logger.info(documents[1])
+        logger.info(f"Number of Chunks: {len(documents)}")
+        
+        file_name = file_path.split("/")[-1]
+        QdrantQuery().insert_into_vectordb(documents, file_name)
+        return jsonify({"filename": file_name, "status": SUCCESS_STATUS})
+
+    except Exception as e:
+        return jsonify({'error': str(e), 'status': FAILED_STATUS}), 400
 
 @pdf_apis.post('/ask')
 @validate(body=QuestionsModel)
@@ -38,11 +58,40 @@ def ask_questions():
         data = request.get_json()
         questions = data.get('questions', [])
 
+        prompt = PromptTemplate(
+            input_variables=["context", "question"],
+            template=template,
+        )
         answers = {}
         for question in questions:
-            answers[question] = f"Answer to '{question}'"
-
+            relevant_docs = QdrantQuery().get_relevant_docs(question, k=1)
+            logger.info(f"======{relevant_docs}")
+            context = relevant_docs[0].page_content
+            filled_prompt = prompt.format(question=question, context=context)
+            
+            request_payload = {
+                "model": "llama2",
+                "prompt": filled_prompt,
+                "format": "json"
+            }
+            answers[question] = get_answer(request_payload)
         return jsonify(answers), 200
 
-    except ValidationError as e:
+    except Exception as e:
         return jsonify({'error': str(e)}), 400
+
+def get_answer(request_payload):
+    try:
+        response = requests.post("http://localhost:11434/api/generate", json=request_payload, timeout=60.0)
+
+        def stream_response_generator():
+            response_str = ""
+            for chunk in response.iter_lines():
+                logger.info(f"Received chunk: {chunk}")
+                json_data = json.loads(chunk)
+                response_str += json_data['response'] + " "
+                time.sleep(1) 
+            return response_str
+        return stream_response_generator()
+    except Exception as e:
+        return "could not find the answer!"

@@ -1,9 +1,13 @@
 from flask import Flask, jsonify
+from dotenv import load_dotenv
 
 from controllers.pdf_controller import pdf_apis
 
+load_dotenv()
+
 app = Flask(__name__)
 app.register_blueprint(pdf_apis, url_prefix="/v1")
+
 
 @app.errorhandler(404)
 def not_found_error(error):
