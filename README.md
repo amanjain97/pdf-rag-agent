@@ -93,3 +93,5 @@ Output
 
 1. Use gaurdrails.ai to gaurdrail the application.
 2. Perform evalaution for the LLM App.
+3. Add slack notification integration.
+4. Make application faster using threading to get answer to each question.
