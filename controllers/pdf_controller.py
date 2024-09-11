@@ -14,7 +14,7 @@ from utils.file_utils import allowed_file, is_valid_pdf
 from config.config import (TEXT_SPLITTER, SUCCESS_STATUS, FAILED_STATUS,
                            EM_ENCODE_KWARGS, EM_MODEL_KWARGS, EM_MODEL_NAME,
                            OPENAI_MODEL)
-from templates.template import prompt
+from templates.template import PROMPT
 
 pdf_apis = Blueprint('pdf', __name__)
 
@@ -65,14 +65,19 @@ def ask_questions():
         answers = {}
         embeddings = HuggingFaceEmbeddings(model_name=EM_MODEL_NAME, model_kwargs=EM_MODEL_KWARGS, encode_kwargs=EM_ENCODE_KWARGS)
         pdf_vectorstore = FAISS.load_local("faiss_pdf_vectorstore", embeddings, allow_dangerous_deserialization=True)
+        
         for question in questions:
             relevant_docs = pdf_vectorstore.similarity_search(query=question, fetch_k=1)
             logger.info(f"======{relevant_docs}")
+            
             context = relevant_docs[0].page_content
-            filled_prompt = prompt.format(question=question, context=context)
+            filled_prompt = PROMPT.format(question=question, context=context)
+            
             llm = ChatOpenAI(model=OPENAI_MODEL)
+            
             result = llm.invoke(filled_prompt)
             answers[question] = result.content
+        
         return jsonify(answers), 200
 
     except Exception as e:
