@@ -14,6 +14,10 @@ pdf-rag-agent/
 │   └── pdf_model.py    # Pydantic models for request 
 ├── utils/
 │   └── file_utils.py          # Utility functions for checking file paths
+├── config/
+│   └── config.py          # Env variable and configuration constants
+├── templates/
+│   └── template.py          # Prompts and templates
 ├── Pipfile                    # Pipenv dependencies
 └── Pipfile.lock               # Lockfile for dependencies
 ```

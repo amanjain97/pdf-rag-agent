@@ -4,15 +4,16 @@ import structlog
 from flask import Blueprint, request, jsonify
 from flask_pydantic import validate
 from langchain_community.document_loaders import PyPDFLoader
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain.vectorstores import FAISS
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.vectorstores import FAISS
 from langchain.text_splitter import CharacterTextSplitter
-from langchain.chains import RetrievalQA
-from langchain.llms import OpenAI
+from langchain_openai import ChatOpenAI
 
 from models.pdf_model import PDFModel, QuestionsModel
 from utils.file_utils import allowed_file, is_valid_pdf
-from config.config import TEXT_SPLITTER, SUCCESS_STATUS, FAILED_STATUS, EM_ENCODE_KWARGS, EM_MODEL_KWARGS, EM_MODEL_NAME
+from config.config import (TEXT_SPLITTER, SUCCESS_STATUS, FAILED_STATUS,
+                           EM_ENCODE_KWARGS, EM_MODEL_KWARGS, EM_MODEL_NAME,
+                           OPENAI_MODEL)
 from templates.template import prompt
 
 pdf_apis = Blueprint('pdf', __name__)
@@ -63,15 +64,15 @@ def ask_questions():
         questions = data.get('questions', [])
         answers = {}
         embeddings = HuggingFaceEmbeddings(model_name=EM_MODEL_NAME, model_kwargs=EM_MODEL_KWARGS, encode_kwargs=EM_ENCODE_KWARGS)
-        persisted_vectorstore = FAISS.load_local("faiss_pdf_vectorstore", embeddings, allow_dangerous_deserialization=True)
+        pdf_vectorstore = FAISS.load_local("faiss_pdf_vectorstore", embeddings, allow_dangerous_deserialization=True)
         for question in questions:
-            relevant_docs = persisted_vectorstore.similarity_search(query=question, fetch_k=1)
+            relevant_docs = pdf_vectorstore.similarity_search(query=question, fetch_k=1)
             logger.info(f"======{relevant_docs}")
             context = relevant_docs[0].page_content
             filled_prompt = prompt.format(question=question, context=context)
-            qa = RetrievalQA.from_chain_type(llm=OpenAI(), chain_type="stuff", retriever=persisted_vectorstore.as_retriever())
-            result = qa.run(filled_prompt)
-            answers[question] = result
+            llm = ChatOpenAI(model=OPENAI_MODEL)
+            result = llm.invoke(filled_prompt)
+            answers[question] = result.content
         return jsonify(answers), 200
 
     except Exception as e:
